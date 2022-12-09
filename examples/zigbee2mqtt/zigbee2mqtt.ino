@@ -189,6 +189,7 @@ void zbhciTask(void *pvParameters)
                     device->u16NwkAddr  = sHciMsg.uPayload.sNodesDevAnnceRspPayload.u16NwkAddr;
                     device->u64IeeeAddr = sHciMsg.uPayload.sNodesDevAnnceRspPayload.u64IEEEAddr;
                     device->u8Type      = sHciMsg.uPayload.sNodesDevAnnceRspPayload.u8Capability;
+                    base_cluster_discover(device);
                 }
                 break;
 
@@ -457,7 +458,7 @@ void load_db(void)
 {
     StaticJsonDocument<1024> doc;
 
-    File configfile = LittleFS.open("/db.json", "r");
+    File configfile = LittleFS.open("/db-milo.json", "r");
     DeserializationError error = deserializeJson(doc, configfile);
     if (error)
         Serial.println(F("Failed to read file, using default configuration"));
@@ -626,4 +627,17 @@ void power_ctl(bool active)
     {
         digitalWrite(0, LOW);
     }
+}
+
+void base_cluster_discover(device_node_t *device) {
+    ts_DstAddr sDstAddr;
+    uint16_t sAttrList[2] = {
+        0x0004,
+        0x0005
+    };
+
+    /* MI: Proactively discover device */
+    sDstAddr.u16DstAddr = device->u16NwkAddr;
+    // zbhci_ZclAttrWrite(0x02, sDstAddr, 1, 1, 0, 0x0006, 1, &sAttrList);
+    zbhci_ZclAttrRead(0x2, sDstAddr, 1, 1, 0, 0x0000, 2, sAttrList);
 }
