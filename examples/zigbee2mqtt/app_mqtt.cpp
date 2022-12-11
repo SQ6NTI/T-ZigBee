@@ -57,6 +57,8 @@ static ts_sub_topic * get_unused_topic(void);
 
 extern String mqtt_server;
 extern uint32_t mqtt_port;
+extern String mqtt_username;
+extern String mqtt_password;
 
 /******************************************************************************/
 /***        local variables                                                 ***/
@@ -99,14 +101,24 @@ void app_mqtt_client_publish(const char *topic, const char *data)
 
 void mqtt_app_start(void)
 {
+    char uri[128] = {0};
+    sprintf(uri, "mqtt://%s:%d", mqtt_server.c_str(), mqtt_port);
     esp_mqtt_client_config_t mqtt_cfg = {
-        // .uri = MQTT_BROKER_URL,
-        .host = mqtt_server.c_str(),
-        .port = mqtt_port
+        .uri = uri,
+        // .host = mqtt_server.c_str(),
+        // .port = mqtt_port
     };
+    if (mqtt_username != "")
+    {
+        mqtt_cfg.username = mqtt_username.c_str();
+    }
+    if (mqtt_username != "")
+    {
+        mqtt_cfg.password = mqtt_password.c_str();
+    }
     topic_init();
     client = esp_mqtt_client_init(&mqtt_cfg);
-    esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, client);
+    esp_mqtt_client_register_event(client, (esp_mqtt_event_id_t)ESP_EVENT_ANY_ID, mqtt_event_handler, client);
     esp_mqtt_client_start(client);
 }
 

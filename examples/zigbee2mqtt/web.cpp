@@ -24,6 +24,8 @@ extern String sta_ssid;
 extern String sta_pwd;
 extern String mqtt_server;
 extern uint32_t mqtt_port;
+extern String mqtt_username;
+extern String mqtt_password;
 
 void web_init(void)
 {
@@ -150,6 +152,8 @@ static void get_status()
     mqtt_obj["status"] = get_mqtt_status() ? "connected" : "disconnect";
     mqtt_obj["server"] = mqtt_server;
     mqtt_obj["port"] = mqtt_port;
+    mqtt_obj["username"] = mqtt_username;
+    mqtt_obj["password"] = mqtt_password;
 
     serializeJson(rsp, s);
 
@@ -183,7 +187,7 @@ static void handle_config()
     bool sta_flag = false;
     bool mqtt_flag = false;
 
-    File configfile = LittleFS.open("/db.json", "r");
+    File configfile = LittleFS.open("/db-milo.json", "r");
     DeserializationError error = deserializeJson(doc, configfile);
     if (error)
         Serial.println(F("Failed to read file, using default configuration"));
@@ -233,9 +237,27 @@ static void handle_config()
                 mqtt_flag = true;
             }
         }
+        else if (server.argName(i).equals("mqtt_username"))
+        {
+            if (doc["mqtt"]["username"] != server.arg(i))
+            {
+                doc["mqtt"]["username"] = server.arg(i);
+                mqtt_username = server.arg(i);
+                mqtt_flag = true;
+            }
+        }
+        else if (server.argName(i).equals("mqtt_password"))
+        {
+            if (doc["mqtt"]["password"] != server.arg(i))
+            {
+                doc["mqtt"]["password"] = server.arg(i);
+                mqtt_password = server.arg(i);
+                mqtt_flag = true;
+            }
+        }
     }
 
-    configfile = LittleFS.open("/db.json", "w");
+    configfile = LittleFS.open("/db-milo.json", "w");
     if (!configfile)
     {
         Serial.println("file error");
