@@ -649,6 +649,75 @@ static void handle_lilygo_light(const char * topic, const char *data)
     delay(100);
 }
 
+static void handle_mqtt_attr_get(const char * topic, const char *data) {
+    printf("Received attr_get mqtt command\n");
+    if (!topic || !data) return ;
+    uint64_t u64IeeeAddr = 0xa4c138c2ec163bd8;
+    ts_DstAddr  sDstAddr;
+    uint16_t uAttrList[1];
+
+    device_node_t *device = find_device_by_ieeeaddr(u64IeeeAddr);
+    if (!device)
+    {
+        printf("on device\n");
+    }
+    sDstAddr.u16DstAddr = device->u16NwkAddr;
+
+    cJSON *json = cJSON_Parse(data);
+    if (!json)
+    {
+        printf("json error\n");
+        return ;
+    }
+    cJSON *cluster = cJSON_GetObjectItem(json, "cluster");
+    if (!cluster)
+    {
+        cJSON_Delete(json);
+        printf("json error\n");
+        return ;
+    }
+    cJSON *attr = cJSON_GetObjectItem(json, "attr");
+    if (!attr)
+    {
+        cJSON_Delete(json);
+        printf("json error\n");
+        return ;
+    }
+    uAttrList[0] = attr->valueint;
+    zbhci_ZclAttrRead(0x2, sDstAddr, 1, 1, 0, cluster->valueint, 1, uAttrList);
+}
+
+static void handle_mqtt_onoff_toggle(const char * topic, const char *data) {
+    printf("Received toggle mqtt command\n");
+    if (!topic || !data) return ;
+    uint64_t u64IeeeAddr = 0xa4c138c2ec163bd8;
+    ts_DstAddr  sDstAddr;
+    uint16_t uAttrList[1];
+
+    device_node_t *device = find_device_by_ieeeaddr(u64IeeeAddr);
+    if (!device)
+    {
+        printf("on device\n");
+    }
+    sDstAddr.u16DstAddr = device->u16NwkAddr;
+
+    zbhci_ZclOnoffToggle(0x2, sDstAddr, 1, 1);
+}
+
+void sub_mqtt_attr_get() {
+    char topic_head[128] = { 0 };
+    char sub_topic[128] = { 0 };
+
+    printf("Subscribing to lilygo mqtt topics\n");
+
+    snprintf(topic_head, sizeof(topic_head) - 1, "lilygo");
+    snprintf(sub_topic, sizeof(sub_topic) - 1, "%s/readattr", topic_head);
+    app_mqtt_client_subscribe(sub_topic, 0, handle_mqtt_attr_get);
+    snprintf(sub_topic, sizeof(sub_topic) - 1, "%s/toggle", topic_head);
+    app_mqtt_client_subscribe(sub_topic, 0, handle_mqtt_onoff_toggle);
+}
+
+
 /******************************************************************************/
 /***        END OF FILE                                                     ***/
 /******************************************************************************/

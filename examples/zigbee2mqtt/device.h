@@ -59,6 +59,8 @@ void lilygo_sensor_report(uint64_t u64IeeeAddr,
 
 void lilygo_sensor_delete(uint64_t u64IeeeAddr);
 
+void sub_mqtt_attr_get();
+
 #ifdef __cplusplus
 }
 #endif

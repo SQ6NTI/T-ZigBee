@@ -828,6 +828,9 @@ void zbhci_ZclAttrRead(uint8_t    u8DstAddrMode,
     uint8_t  au8Payload[256] = { 0 };
     int32_t  i               = 0;
 
+    //char tempChars[4] = {0};
+    //char hexCharArray[256 * 2 + 1] = {0};
+
     U8_TO_BUFFER (&au8Payload[u16MsgLength], u8DstAddrMode, u16MsgLength);
     if (u8DstAddrMode == 0x01 || u8DstAddrMode == 0x02)
     {
@@ -844,9 +847,18 @@ void zbhci_ZclAttrRead(uint8_t    u8DstAddrMode,
     U8_TO_BUFFER (&au8Payload[u16MsgLength], u8AttrNum,     u16MsgLength);
     for (i = 0; i < u8AttrNum; i++)
     {
+        ESP_LOGI("ZBHCI", "zbhci_ZclAttrRead adding '%04x' attr to buffer ", pu16AttrList[i]);
         U16_TO_BUFFER(&au8Payload[u16MsgLength], pu16AttrList[i], u16MsgLength);
+        U8_TO_BUFFER(&au8Payload[u16MsgLength], ZCL_DATA_TYPE_UNKNOWN, u16MsgLength);
     }
 
+    /*for (i = 0; i < 256; i++)
+    {
+        sprintf(tempChars, "%02x", au8Payload[i]);
+        strncat(hexCharArray, tempChars, 2);
+    }*/
+    //ESP_LOGI("ZBHCI", "zbhci_ZclAttrRead TX payload: %s", hexCharArray);
+    
     zbhci_Tx(ZBHCI_CMD_ZCL_ATTR_READ, u16MsgLength, au8Payload);
 }
 

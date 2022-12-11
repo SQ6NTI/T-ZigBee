@@ -43,6 +43,7 @@ String mqtt_server = "";
 uint32_t mqtt_port = 0;
 String mqtt_username = "";
 String mqtt_password = "";
+String topics_subscribed = "no";
 
 #define CONFIG_USR_BUTTON_PIN 2
 #define CONFIG_BLUE_LIGHT_PIN 3
@@ -105,6 +106,7 @@ void setup()
     zbhci_NetworkStateReq();
     vTaskDelay(100 / portTICK_PERIOD_MS);
     zbhci_NodesJoinedGetReq(0);
+    //sub_mqtt_attr_get();
     btn.attachClick(handleClick);
     btn.attachDoubleClick(handleDoubleClick);
 }
@@ -139,6 +141,10 @@ void ledTask(void *pvParameters)
         {
             digitalWrite(CONFIG_BLUE_LIGHT_PIN, HIGH);
             delay(100);
+            if (topics_subscribed != "yes") {
+                sub_mqtt_attr_get();
+                topics_subscribed = "yes";
+            }
         }
     }
 }
@@ -147,7 +153,12 @@ void ledTask(void *pvParameters)
 void zbhciTask(void *pvParameters)
 {
     ts_HciMsg sHciMsg;
+    ts_DstAddr sDstAddr;
+    bool bIdentFound;
     device_node_t *device = NULL;
+
+    char tempChars[4] = {0};
+    char hexCharArray[256 * 2 + 1] = {0};
 
     while (1)
     {
@@ -189,7 +200,7 @@ void zbhciTask(void *pvParameters)
                     device->u16NwkAddr  = sHciMsg.uPayload.sNodesDevAnnceRspPayload.u16NwkAddr;
                     device->u64IeeeAddr = sHciMsg.uPayload.sNodesDevAnnceRspPayload.u64IEEEAddr;
                     device->u8Type      = sHciMsg.uPayload.sNodesDevAnnceRspPayload.u8Capability;
-                    base_cluster_discover(device);
+                    //base_cluster_discover(device);
                 }
                 break;
 
@@ -230,6 +241,7 @@ void zbhciTask(void *pvParameters)
 
                 case ZBHCI_CMD_ZCL_REPORT_MSG_RCV:
                 {
+                    bIdentFound = false;
                     switch (sHciMsg.uPayload.sZclReportMsgRcvPayload.u16ClusterId)
                     {
                         case 0x0000: /* Basic Cluster */
@@ -237,7 +249,7 @@ void zbhciTask(void *pvParameters)
                             {
                                 if (sHciMsg.uPayload.sZclReportMsgRcvPayload.asAttrList[i].u16AttrID == 0x0005)
                                 {
-                                    // lumi.sensor_motion.aq2
+                                    bIdentFound = true;
                                     device = find_device_by_nwkaddr(sHciMsg.uPayload.sZclReportMsgRcvPayload.u16SrcAddr);
                                     if (!device) continue;
                                     memcpy(device->au8ModelId, \
@@ -427,7 +439,48 @@ void zbhciTask(void *pvParameters)
                         default:
                         break;
                     }
+                    if (!bIdentFound)
+                        model_discover(device);
+                }
+                break;
 
+                case ZBHCI_CMD_ZCL_ATTR_READ_RSP:
+                {
+                    ESP_LOGI("Zigbee2MQTT", "Received ZBHCI_CMD_ZCL_ATTR_READ_RSP");
+
+                    switch (sHciMsg.uPayload.sZclAttrReadRspPayload.u16ClusterId)
+                    {
+                        case 0x0000: /* Basic Cluster */
+                            for (size_t i = 0; i < sHciMsg.uPayload.sZclAttrReadRspPayload.u8AttrNum; i++)
+                            {
+                                if (sHciMsg.uPayload.sZclAttrReadRspPayload.asAttrReadList[i].u16AttrID == 0x0005)
+                                {
+                                    device = find_device_by_nwkaddr(sHciMsg.uPayload.sZclAttrReadRspPayload.u16SrcAddr);
+                                    if (!device) continue;
+                                    memcpy(device->au8ModelId, \
+                                        sHciMsg.uPayload.sZclAttrReadRspPayload.asAttrReadList[i].uAttrData.au8AttrData, \
+                                        sHciMsg.uPayload.sZclAttrReadRspPayload.asAttrReadList[i].u16DataLen);
+                                    if (!strncmp((const char *)sHciMsg.uPayload.sZclAttrReadRspPayload.asAttrReadList[i].uAttrData.au8AttrData,
+                                                "TS011F",
+                                                strlen("TS011F")))
+                                    {
+                                        app_db_save();
+                                        ESP_LOGI("Zigbee2MQTT", "ZBHCI_CMD_ZCL_ATTR_READ_RSP found device: TS011F");
+                                    } else {
+                                        for (i = 0; i < 33; i++)
+                                        {
+                                            sprintf(tempChars, "%02x", (const char *)sHciMsg.uPayload.sZclAttrReadRspPayload.asAttrReadList[i].uAttrData.au8AttrData);
+                                            strncat(hexCharArray, tempChars, 2);
+                                        }
+                                        ESP_LOGI("Zigbee2MQTT", "ZBHCI_CMD_ZCL_ATTR_READ_RSP found unknown device: %s", hexCharArray);
+                                    }
+                                }
+                            }
+                        break;
+
+                        default:
+                        break;
+                    }
                 }
                 break;
 
@@ -629,15 +682,16 @@ void power_ctl(bool active)
     }
 }
 
-void base_cluster_discover(device_node_t *device) {
+/* Proactively discover ModelIdentifier */
+void model_discover(device_node_t *device) {
     ts_DstAddr sDstAddr;
-    uint16_t sAttrList[2] = {
-        0x0004,
-        0x0005
-    };
+    uint16_t uAttrList[] = { 0x0005 };
 
-    /* MI: Proactively discover device */
+    for (int i = 0; i<1; i++) {
+        ESP_LOGI("Zigbee2MQTT", "Retrieving attribute: %#04x", uAttrList[i]);
+    }
+    
     sDstAddr.u16DstAddr = device->u16NwkAddr;
-    // zbhci_ZclAttrWrite(0x02, sDstAddr, 1, 1, 0, 0x0006, 1, &sAttrList);
-    zbhci_ZclAttrRead(0x2, sDstAddr, 1, 1, 0, 0x0000, 2, sAttrList);
+    zbhci_ZclAttrRead(0x2, sDstAddr, 1, 1, 0, 0x0000, 1, uAttrList);
 }
+
