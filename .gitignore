@@ -1,2 +1,4 @@
 .vscode
 .pio
+examples/zigbee2mqtt/data/db-milo.json
+.DS_Store

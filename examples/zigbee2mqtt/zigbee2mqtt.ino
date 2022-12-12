@@ -43,6 +43,7 @@ String mqtt_server = "";
 uint32_t mqtt_port = 0;
 String mqtt_username = "";
 String mqtt_password = "";
+String topics_subscribed = "no";
 
 #define CONFIG_USR_BUTTON_PIN 2
 #define CONFIG_BLUE_LIGHT_PIN 3
@@ -139,6 +140,10 @@ void ledTask(void *pvParameters)
         {
             digitalWrite(CONFIG_BLUE_LIGHT_PIN, HIGH);
             delay(100);
+            if (topics_subscribed != "yes") {
+                sub_mqtt_attr_get();
+                topics_subscribed = "yes";
+            }
         }
     }
 }
@@ -221,6 +226,13 @@ void zbhciTask(void *pvParameters)
                         {
                             lilygo_sensor_delete(device->u64IeeeAddr);
                         }
+                        else
+                        {
+                            if (device->u64IeeeAddr == 0xa4c138c2ec163bd8)
+                            {
+                                tuya_plug_delete(device->u64IeeeAddr);
+                            }
+                        }
                         memset(device, 0, sizeof(device_node_t));
                         app_db_save();
                     }
@@ -236,7 +248,6 @@ void zbhciTask(void *pvParameters)
                             {
                                 if (sHciMsg.uPayload.sZclReportMsgRcvPayload.asAttrList[i].u16AttrID == 0x0005)
                                 {
-                                    // lumi.sensor_motion.aq2
                                     device = find_device_by_nwkaddr(sHciMsg.uPayload.sZclReportMsgRcvPayload.u16SrcAddr);
                                     if (!device) continue;
                                     memcpy(device->au8ModelId, \
@@ -272,6 +283,8 @@ void zbhciTask(void *pvParameters)
                                     }
                                 }
                             }
+                        
+                        
                         break;
 
                         case 0x0006:
@@ -282,12 +295,18 @@ void zbhciTask(void *pvParameters)
                             {
                                 if (sHciMsg.uPayload.sZclReportMsgRcvPayload.asAttrList[i].u16AttrID == 0x0000)
                                 {
-                                    device->device_data.light.u8State = sHciMsg.uPayload.sZclReportMsgRcvPayload.asAttrList[i].uAttrData.u8AttrData;
                                     if (!strncmp((const char *)device->au8ModelId,
                                                 "LILYGO.Light",
                                                 strlen("LILYGO.Light")))
                                     {
+                                        device->device_data.light.u8State = sHciMsg.uPayload.sZclReportMsgRcvPayload.asAttrList[i].uAttrData.u8AttrData;
                                         lilygo_light_report(device->u64IeeeAddr, device->device_data.light.u8State);
+                                    } else {
+                                        if (device->u64IeeeAddr == 0xa4c138c2ec163bd8) 
+                                        {
+                                            device->device_data.ts_ts011f.bOnOff = sHciMsg.uPayload.sZclReportMsgRcvPayload.asAttrList[i].uAttrData.u8AttrData;
+                                            tuya_plug_report(device->u64IeeeAddr, device->device_data.ts_ts011f.bOnOff);
+                                        }
                                     }
                                 }
                             }
@@ -423,6 +442,17 @@ void zbhciTask(void *pvParameters)
                         }
                         break;
 
+                        case 0xe000: /* Tuya Common Private Cluster */
+                        {
+                            device = find_device_by_nwkaddr(sHciMsg.uPayload.sZclReportMsgRcvPayload.u16SrcAddr);
+                            if (!device) continue;
+                            if (device->u64IeeeAddr == 0xa4c138c2ec163bd8) 
+                            {
+                                app_db_save();
+                                tuya_plug_add(device->u64IeeeAddr);
+                            }
+                        }
+
                         default:
                         break;
                     }
@@ -457,7 +487,7 @@ void load_db(void)
 {
     StaticJsonDocument<1024> doc;
 
-    File configfile = LittleFS.open("/db.json", "r");
+    File configfile = LittleFS.open("/db-milo.json", "r");
     DeserializationError error = deserializeJson(doc, configfile);
     if (error)
         Serial.println(F("Failed to read file, using default configuration"));
@@ -491,6 +521,7 @@ void WiFiEvent(WiFiEvent_t event)
             break;
         case ARDUINO_EVENT_WIFI_STA_CONNECTED:
             Serial.println("Connected to access point");
+            WiFi.mode(WIFI_MODE_STA);
             break;
         case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
             Serial.println("Disconnected from WiFi access point");
@@ -572,8 +603,8 @@ void wifi_init_sta(void)
     WiFi.disconnect(true);
     delay(1000);
 
-    WiFi.mode(WIFI_AP_STA);
     // WiFi.mode(WIFI_AP);
+    WiFi.mode(WIFI_AP_STA);
     Serial.printf("WiFi: Set mode to WIFI_AP_STA\n");
 
     WiFi.onEvent(WiFiEvent);

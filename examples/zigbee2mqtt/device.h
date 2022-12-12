@@ -59,6 +59,14 @@ void lilygo_sensor_report(uint64_t u64IeeeAddr,
 
 void lilygo_sensor_delete(uint64_t u64IeeeAddr);
 
+void tuya_plug_add(uint64_t u64IeeeAddr);
+
+void tuya_plug_delete(uint64_t u64IeeeAddr);
+
+void tuya_plug_report(uint64_t u64IeeeAddr, uint8_t u8OnOff);
+
+void sub_mqtt_attr_get();
+
 #ifdef __cplusplus
 }
 #endif

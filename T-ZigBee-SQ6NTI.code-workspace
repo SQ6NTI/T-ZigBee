@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "T-ZigBee-SQ6NTI",
+			"path": "."
+		},
+		{
+			"name": "T-ZigBee",
+			"path": "../T-ZigBee"
+		}
+	],
+	"settings": {}
+}

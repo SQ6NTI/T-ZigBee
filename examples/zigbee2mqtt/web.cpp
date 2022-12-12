@@ -187,7 +187,7 @@ static void handle_config()
     bool sta_flag = false;
     bool mqtt_flag = false;
 
-    File configfile = LittleFS.open("/db.json", "r");
+    File configfile = LittleFS.open("/db-milo.json", "r");
     DeserializationError error = deserializeJson(doc, configfile);
     if (error)
         Serial.println(F("Failed to read file, using default configuration"));
@@ -257,7 +257,7 @@ static void handle_config()
         }
     }
 
-    configfile = LittleFS.open("/db.json", "w");
+    configfile = LittleFS.open("/db-milo.json", "w");
     if (!configfile)
     {
         Serial.println("file error");

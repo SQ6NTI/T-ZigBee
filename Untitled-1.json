@@ -1,0 +1,23 @@
+{
+    "availability": [
+        {
+            "topic": "zigbee2mqtt/bridge/state"
+        }
+    ],
+    "command_topic": "zigbee2mqtt/0xa4c138c2ec163bd8/set",
+    "device": {
+        "identifiers": [
+            "zigbee2mqtt_0xa4c138c2ec163bd8"
+        ],
+        "manufacturer": "TuYa",
+        "model": "Smart plug (with power monitoring) (TS011F_plug_1)",
+        "name": "0xa4c138c2ec163bd8"
+    },
+    "json_attributes_topic": "zigbee2mqtt/0xa4c138c2ec163bd8",
+    "name": "0xa4c138c2ec163bd8",
+    "payload_off": "OFF",
+    "payload_on": "ON",
+    "state_topic": "zigbee2mqtt/0xa4c138c2ec163bd8",
+    "unique_id": "0xa4c138c2ec163bd8_switch_zigbee2mqtt",
+    "value_template": "{{ value_json.state }}"
+}
