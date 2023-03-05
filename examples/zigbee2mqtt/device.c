@@ -137,6 +137,10 @@ void wsdcgq11lm_report(uint64_t u64IeeeAddr,
     snprintf(ieeeaddr_str, sizeof(ieeeaddr_str) - 1, "0x%016llx", u64IeeeAddr);
     snprintf(topic, sizeof(topic) - 1, "zigbee2mqtt/%s", ieeeaddr_str);
 
+    printf("wsdcgq11lm_report temp %d\n", i16Temperature);
+    printf("wsdcgq11lm_report humid %d\n", i16Humidity);
+    printf("wsdcgq11lm_report press %d\n", i16Pressure);
+
     cJSON_AddNumberToObject(json, "temperature", (double)i16Temperature/100);
     cJSON_AddNumberToObject(json, "humidity",    (double)i16Humidity/100);
     cJSON_AddNumberToObject(json, "pressure",    (double)i16Pressure);
@@ -496,7 +500,8 @@ void sub_mqtt_attr_get()
 
     snprintf(topic, sizeof(topic) - 1, "lilygo/readattr", topic);
     app_mqtt_client_subscribe(topic, 0, handle_mqtt_attr_get);
-    snprintf(topic, sizeof(topic) - 1, "zigbee2mqtt/0xa4c138c2ec163bd8/set");
+    //snprintf(topic, sizeof(topic) - 1, "zigbee2mqtt/0xa4c138c2ec163bd8/set");
+    snprintf(topic, sizeof(topic) - 1, "zigbee2mqtt/0xa4c1387ca2489e61/set");
     app_mqtt_client_subscribe(topic, 0, handle_tuya_plug);
 }
 
@@ -807,7 +812,9 @@ static void handle_tuya_plug(const char * topic, const char *data)
 static void handle_mqtt_attr_get(const char * topic, const char *data) {
     printf("Received attr_get mqtt command\n");
     if (!topic || !data) return ;
-    uint64_t u64IeeeAddr = 0xa4c138c2ec163bd8;
+    //uint64_t u64IeeeAddr = 0xa4c138c2ec163bd8;
+    uint64_t u64IeeeAddr = 0xa4c1387ca2489e61;
+
     ts_DstAddr  sDstAddr;
     uint16_t uAttrList[1];
 

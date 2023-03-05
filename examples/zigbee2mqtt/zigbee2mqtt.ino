@@ -228,7 +228,8 @@ void zbhciTask(void *pvParameters)
                         }
                         else
                         {
-                            if (device->u64IeeeAddr == 0xa4c138c2ec163bd8)
+                            //if (device->u64IeeeAddr == 0xa4c138c2ec163bd8)
+                            if (device->u64IeeeAddr == 0xa4c1387ca2489e61)
                             {
                                 tuya_plug_delete(device->u64IeeeAddr);
                             }
@@ -302,7 +303,8 @@ void zbhciTask(void *pvParameters)
                                         device->device_data.light.u8State = sHciMsg.uPayload.sZclReportMsgRcvPayload.asAttrList[i].uAttrData.u8AttrData;
                                         lilygo_light_report(device->u64IeeeAddr, device->device_data.light.u8State);
                                     } else {
-                                        if (device->u64IeeeAddr == 0xa4c138c2ec163bd8) 
+                                        //if (device->u64IeeeAddr == 0xa4c138c2ec163bd8)
+                                        if (device->u64IeeeAddr == 0xa4c1387ca2489e61)
                                         {
                                             device->device_data.ts_ts011f.bOnOff = sHciMsg.uPayload.sZclReportMsgRcvPayload.asAttrList[i].uAttrData.u8AttrData;
                                             tuya_plug_report(device->u64IeeeAddr, device->device_data.ts_ts011f.bOnOff);
@@ -446,7 +448,8 @@ void zbhciTask(void *pvParameters)
                         {
                             device = find_device_by_nwkaddr(sHciMsg.uPayload.sZclReportMsgRcvPayload.u16SrcAddr);
                             if (!device) continue;
-                            if (device->u64IeeeAddr == 0xa4c138c2ec163bd8) 
+                            //if (device->u64IeeeAddr == 0xa4c138c2ec163bd8)
+                            if (device->u64IeeeAddr == 0xa4c1387ca2489e61)
                             {
                                 app_db_save();
                                 tuya_plug_add(device->u64IeeeAddr);
@@ -604,8 +607,10 @@ void wifi_init_sta(void)
     delay(1000);
 
     // WiFi.mode(WIFI_AP);
-    WiFi.mode(WIFI_AP_STA);
-    Serial.printf("WiFi: Set mode to WIFI_AP_STA\n");
+    //WiFi.mode(WIFI_AP_STA);
+    WiFi.mode(WIFI_STA);
+    //Serial.printf("WiFi: Set mode to WIFI_AP_STA\n");
+    Serial.printf("WiFi: Set mode to WIFI_STA\n");
 
     WiFi.onEvent(WiFiEvent);
 
