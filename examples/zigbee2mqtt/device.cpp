@@ -27,21 +27,21 @@
 /***        local function prototypes                                       ***/
 /******************************************************************************/
 
-static void sub_humidity(uint64_t u64IeeeAddr, cJSON *json);
+static void subHumidity(uint64_t u64IeeeAddr, cJSON *json);
 
-static void sub_temperature(uint64_t u64IeeeAddr, cJSON *json);
+static void subTemperature(uint64_t u64IeeeAddr, cJSON *json);
 
-static void sub_pressure(uint64_t u64IeeeAddr, cJSON *json);
+static void subPressure(uint64_t u64IeeeAddr, cJSON *json);
 
-static void sub_occupancy(uint64_t u64IeeeAddr, cJSON *json);
+static void subOccupancy(uint64_t u64IeeeAddr, cJSON *json);
 
-static void sub_illuminance_lux(uint64_t u64IeeeAddr, cJSON *json);
+static void subIlluminanceLux(uint64_t u64IeeeAddr, cJSON *json);
 
-static void handle_lilygo_light(const char *topic, const char *data);
+static void handleLilygoLight(const char *topic, const char *data);
 
-static void handle_tuya_plug(const char * topic, const char *data);
+static void handleTuyaPlug(const char * topic, const char *data);
 
-static void handle_mqtt_attr_get(const char * topic, const char *data);
+static void handleMQTTAttrGet(const char * topic, const char *data);
 
 /******************************************************************************/
 /***        exported variables                                              ***/
@@ -55,12 +55,14 @@ static void handle_mqtt_attr_get(const char * topic, const char *data);
 /***        exported functions                                              ***/
 /******************************************************************************/
 
-void wsdcgq11lm_add(uint64_t u64IeeeAddr)
-{
+void wsdcgq11lmAdd(uint64_t u64IeeeAddr) {
     char ieeeaddr_str[20] = { 0 };
     cJSON *json = cJSON_CreateObject();
     cJSON *device = cJSON_CreateObject();
     cJSON *identifiers = cJSON_CreateArray();
+    cJSON *json_humidity = NULL;
+    cJSON *json_temperature = NULL;
+    cJSON *json_pressure = NULL;
 
     if (!json) return ;
     if (!device) goto OUT;
@@ -71,30 +73,35 @@ void wsdcgq11lm_add(uint64_t u64IeeeAddr)
     cJSON_AddItemToArray(identifiers, cJSON_CreateString(ieeeaddr_str));
     cJSON_AddItemToObject(device, "identifiers", identifiers);
     cJSON_AddStringToObject(device, "manufacturer", "Xiaomi");
-    cJSON_AddStringToObject(device, "model", "Aqara temperature, humidity and pressure sensor (WSDCGQ11LM)");
+    cJSON_AddStringToObject(
+        device,
+        "model",
+        "Aqara temperature, humidity and pressure sensor (WSDCGQ11LM)"
+    );
     cJSON_AddStringToObject(device, "name", ieeeaddr_str);
     cJSON_AddStringToObject(device, "sw_version", "3000-0001");
     cJSON_AddItemToObject(json, "device", device);
 
-    cJSON *json_humidity = cJSON_Duplicate(json, 1);
-    if (json_humidity)
-    {
-        sub_humidity(u64IeeeAddr, json_humidity);
+    json_humidity = cJSON_Duplicate(json, 1);
+    if (json_humidity) {
+        subHumidity(u64IeeeAddr, json_humidity);
         cJSON_Delete(json_humidity);
     }
-    cJSON *json_temperature = cJSON_Duplicate(json, 1);
-    if (json_humidity)
-    {
-        sub_temperature(u64IeeeAddr, json_temperature);
+    json_temperature = cJSON_Duplicate(json, 1);
+    if (json_humidity) {
+        subTemperature(u64IeeeAddr, json_temperature);
         cJSON_Delete(json_temperature);
     }
-    cJSON *json_pressure = cJSON_Duplicate(json, 1);
-    if (json_humidity)
-    {
-        sub_pressure(u64IeeeAddr, json_pressure);
+    json_pressure = cJSON_Duplicate(json, 1);
+    if (json_humidity) {
+        subPressure(u64IeeeAddr, json_pressure);
         cJSON_Delete(json_pressure);
     }
-    ESP_LOGI("Zigbee2MQTT", "Successfully interviewed '%#016llx', device has successfully been paired", u64IeeeAddr);
+    ESP_LOGI(
+        "Zigbee2MQTT",
+        "Successfully interviewed '%#016llx', device has successfully been paired",
+        u64IeeeAddr
+    );
 OUT:
     cJSON_Delete(json);
     return;
@@ -104,7 +111,7 @@ OUT1:
 }
 
 
-void wsdcgq11lm_delete(uint64_t u64IeeeAddr)
+void wsdcgq11lmDelete(uint64_t u64IeeeAddr)
 {
     char ieeeaddr_str[20] = { 0 };
     char topic[128] = { 0 };
@@ -112,24 +119,37 @@ void wsdcgq11lm_delete(uint64_t u64IeeeAddr)
     snprintf(ieeeaddr_str, sizeof(ieeeaddr_str) - 1, "0x%016llx", u64IeeeAddr);
 
     memset(topic, 0, sizeof(topic));
-    snprintf(topic, sizeof(topic) - 1, "homeassistant/sensor/%s/humidity/config", ieeeaddr_str);
-    app_mqtt_client_publish(topic ,"");
+    snprintf(topic, sizeof(topic) - 1,
+        "homeassistant/sensor/%s/humidity/config",
+        ieeeaddr_str
+    );
+    // appMQTTPublish(topic, "");
+    mqtt.publish(topic, "");
 
     memset(topic, 0, sizeof(topic));
-    snprintf(topic, sizeof(topic) - 1, "homeassistant/sensor/%s/temperature/config", ieeeaddr_str);
-    app_mqtt_client_publish(topic ,"");
+    snprintf(topic, sizeof(topic) - 1,
+        "homeassistant/sensor/%s/temperature/config",
+        ieeeaddr_str
+    );
+    // appMQTTPublish(topic, "");
+    mqtt.publish(topic, "");
 
     memset(topic, 0, sizeof(topic));
-    snprintf(topic, sizeof(topic) - 1, "homeassistant/sensor/%s/pressure/config", ieeeaddr_str);
-    app_mqtt_client_publish(topic ,"");
+    snprintf(topic, sizeof(topic) - 1,
+        "homeassistant/sensor/%s/pressure/config",
+        ieeeaddr_str
+    );
+    // appMQTTPublish(topic, "");
+    mqtt.publish(topic, "");
 }
 
 
-void wsdcgq11lm_report(uint64_t u64IeeeAddr,
-                       int16_t  i16Temperature,
-                       int16_t  i16Humidity,
-                       int16_t  i16Pressure)
-{
+void wsdcgq11lmReport(
+    uint64_t u64IeeeAddr,
+    int16_t  i16Temperature,
+    int16_t  i16Humidity,
+    int16_t  i16Pressure
+) {
     char ieeeaddr_str[20] = { 0 };
     char topic[128] = { 0 };
 
@@ -146,17 +166,19 @@ void wsdcgq11lm_report(uint64_t u64IeeeAddr,
     cJSON_AddNumberToObject(json, "pressure",    (double)i16Pressure);
     char *str = cJSON_Print(json);
 
-    app_mqtt_client_publish(topic ,str);
+    // appMQTTPublish(topic, str);
+    mqtt.publish(topic, str);
     cJSON_Delete(json);
 }
 
 
-void rtcgq11lm_add(uint64_t u64IeeeAddr)
-{
+void rtcgq11lmAdd(uint64_t u64IeeeAddr) {
     char ieeeaddr_str[20] = { 0 };
     cJSON *json = cJSON_CreateObject();
     cJSON *device = cJSON_CreateObject();
     cJSON *identifiers = cJSON_CreateArray();
+    cJSON *json_illuminance_lux = NULL;
+    cJSON *json_occupancy = NULL;
 
     if (!json) return ;
     if (!device) goto OUT;
@@ -167,25 +189,31 @@ void rtcgq11lm_add(uint64_t u64IeeeAddr)
     cJSON_AddItemToArray(identifiers, cJSON_CreateString(ieeeaddr_str));
     cJSON_AddItemToObject(device, "identifiers", identifiers);
     cJSON_AddStringToObject(device, "manufacturer", "Xiaomi");
-    cJSON_AddStringToObject(device, "model", "Aqara human body movement and illuminance sensor (RTCGQ11LM)");
+    cJSON_AddStringToObject(
+        device,
+        "model",
+        "Aqara human body movement and illuminance sensor (RTCGQ11LM)"
+    );
     cJSON_AddStringToObject(device, "name", ieeeaddr_str);
     cJSON_AddStringToObject(device, "sw_version", "3000-0001");
     cJSON_AddItemToObject(json, "device", device);
 
-    cJSON *json_illuminance_lux = cJSON_Duplicate(json, 1);
-    if (json_illuminance_lux)
-    {
-        sub_illuminance_lux(u64IeeeAddr, json_illuminance_lux);
+    json_illuminance_lux = cJSON_Duplicate(json, 1);
+    if (json_illuminance_lux) {
+        subIlluminanceLux(u64IeeeAddr, json_illuminance_lux);
         cJSON_Delete(json_illuminance_lux);
     }
-    cJSON *json_occupancy = cJSON_Duplicate(json, 1);
-    if (json_occupancy)
-    {
-        sub_occupancy(u64IeeeAddr, json_occupancy);
+    json_occupancy = cJSON_Duplicate(json, 1);
+    if (json_occupancy) {
+        subOccupancy(u64IeeeAddr, json_occupancy);
         cJSON_Delete(json_occupancy);
     }
 
-    ESP_LOGI("Zigbee2MQTT", "Successfully interviewed '%#016llx', device has successfully been paired", u64IeeeAddr);
+    ESP_LOGI(
+        "Zigbee2MQTT",
+        "Successfully interviewed '%#016llx', device has successfully been paired",
+        u64IeeeAddr
+    );
 OUT:
     cJSON_Delete(json);
     return;
@@ -195,27 +223,35 @@ OUT1:
 }
 
 
-void rtcgq11lm_delete(uint64_t u64IeeeAddr)
-{
+void rtcgq11lmDelete(uint64_t u64IeeeAddr) {
     char ieeeaddr_str[20] = { 0 };
     char topic[128] = { 0 };
 
     snprintf(ieeeaddr_str, sizeof(ieeeaddr_str) - 1, "0x%016llx", u64IeeeAddr);
 
     memset(topic, 0, sizeof(topic));
-    snprintf(topic, sizeof(topic) - 1, "homeassistant/sensor/%s/illuminance_lux/config", ieeeaddr_str);
-    app_mqtt_client_publish(topic ,"");
+    snprintf(topic, sizeof(topic) - 1,
+        "homeassistant/sensor/%s/illuminance_lux/config",
+        ieeeaddr_str
+    );
+    // appMQTTPublish(topic ,"");
+    mqtt.publish(topic, "");
 
     memset(topic, 0, sizeof(topic));
-    snprintf(topic, sizeof(topic) - 1, "homeassistant/binary_sensor/%s/occupancy/config", ieeeaddr_str);
-    app_mqtt_client_publish(topic ,"");
+    snprintf(topic, sizeof(topic) - 1,
+        "homeassistant/binary_sensor/%s/occupancy/config",
+        ieeeaddr_str
+    );
+    // appMQTTPublish(topic, "");
+    mqtt.publish(topic, "");
 }
 
 
-void rtcgq11lm_report(uint64_t u64IeeeAddr,
-                      int8_t   u8Occupancy,
-                      uint16_t u16Illuminance)
-{
+void rtcgq11lmReport(
+    uint64_t u64IeeeAddr,
+    int8_t   u8Occupancy,
+    uint16_t u16Illuminance
+) {
     char ieeeaddr_str[20] = { 0 };
     char topic[128] = { 0 };
 
@@ -227,29 +263,33 @@ void rtcgq11lm_report(uint64_t u64IeeeAddr,
     cJSON_AddNumberToObject(json, "illuminance", u16Illuminance);
     char *str = cJSON_Print(json);
 
-    app_mqtt_client_publish(topic ,str);
+    // appMQTTPublish(topic, str);
+    mqtt.publish(topic, str);
     cJSON_Delete(json);
 }
 
 
-void lilygo_light_add(uint64_t u64IeeeAddr)
-{
+void lilygoLightAdd(uint64_t u64IeeeAddr) {
     char ieeeaddr_str[20] = { 0 };
     char topic[128] = { 0 };
     char topic_head[128] = { 0 };
-    char sub_topic[128] = { 0 };
+    char subTopics[128] = { 0 };
     cJSON *json = cJSON_CreateObject();
     cJSON *device = cJSON_CreateObject();
     cJSON *identifiers = cJSON_CreateArray();
+    char *str = NULL;
 
     if (!json) return ;
     if (!device) goto OUT;
     if (!identifiers) goto OUT1;
 
     snprintf(ieeeaddr_str, sizeof(ieeeaddr_str) - 1, "0x%016llx", u64IeeeAddr);
-    snprintf(topic_head, sizeof(topic_head) - 1, "homeassistant/light/0x%016llx", u64IeeeAddr);
+    snprintf(topic_head, sizeof(topic_head) - 1,
+        "homeassistant/light/0x%016llx",
+        u64IeeeAddr
+    );
     snprintf(topic, sizeof(topic) - 1, "%s/config", topic_head);\
-    snprintf(sub_topic, sizeof(sub_topic) - 1, "%s/set", topic_head);
+    snprintf(subTopics, sizeof(subTopics) - 1, "%s/set", topic_head);
 
     cJSON_AddItemToArray(identifiers, cJSON_CreateString(ieeeaddr_str));
     cJSON_AddItemToObject(device, "identifiers", identifiers);
@@ -265,10 +305,15 @@ void lilygo_light_add(uint64_t u64IeeeAddr)
     cJSON_AddStringToObject(json, "schema", "json");
     cJSON_AddStringToObject(json, "unique_id", ieeeaddr_str);
 
-    char *str = cJSON_Print(json);
-    app_mqtt_client_publish(topic ,str);
-    app_mqtt_client_subscribe(sub_topic, 0, handle_lilygo_light);
-    ESP_LOGI("Zigbee2MQTT", "Successfully interviewed '%#016llx', device has successfully been paired", u64IeeeAddr);
+    str = cJSON_Print(json);
+    // appMQTTPublish(topic, str);
+    mqtt.publish(topic, str);
+    mqtt.subscribe(subTopics, handleLilygoLight);
+    ESP_LOGI(
+        "Zigbee2MQTT",
+        "Successfully interviewed '%#016llx', device has successfully been paired",
+        u64IeeeAddr
+    );
 OUT:
     cJSON_Delete(json);
     return;
@@ -278,51 +323,146 @@ OUT1:
 }
 
 
-void lilygo_light_delete(uint64_t u64IeeeAddr)
-{
+void lilygoLightDelete(uint64_t u64IeeeAddr) {
     char ieeeaddr_str[20] = { 0 };
     char topic[128] = { 0 };
 
     snprintf(ieeeaddr_str, sizeof(ieeeaddr_str) - 1, "0x%016llx", u64IeeeAddr);
 
     memset(topic, 0, sizeof(topic));
-    snprintf(topic, sizeof(topic) - 1, "homeassistant/light/%s/config", ieeeaddr_str);
-    app_mqtt_client_publish(topic ,"");
+    snprintf(topic, sizeof(topic) - 1,
+        "homeassistant/light/%s/config",
+        ieeeaddr_str
+    );
+    // appMQTTPublish(topic, "");
+    mqtt.publish(topic, "");
 }
 
 
-void lilygo_light_report(uint64_t u64IeeeAddr, uint8_t u8OnOff)
-{
+void lilygoLightReport(uint64_t u64IeeeAddr, uint8_t u8OnOff) {
     char topic[128] = { 0 };
 
     cJSON *json = cJSON_CreateObject();
     if (!json) return ;
 
-    // printf("lilygo_light_report %d\n", u8OnOff);
+    // printf("lilygoLightReport %d\n", u8OnOff);
 
     snprintf(topic, sizeof(topic) - 1, "homeassistant/light/0x%016llx/state", u64IeeeAddr);
-    if (u8OnOff == 0x01)
-    {
+    if (u8OnOff == 0x01) {
         cJSON_AddStringToObject(json, "state", "ON");
-    }
-    else
-    {
+    } else {
         cJSON_AddStringToObject(json, "state", "OFF");
     }
-    
+
     // cJSON_AddStringToObject(json, "state", u8OnOff ? "ON": "OFF");
     char *str = cJSON_Print(json);
     // printf("topic: %s, data: %s\n", topic, str);
-    app_mqtt_client_publish(topic ,str);
+    // appMQTTPublish(topic, str);
+    mqtt.publish(topic ,str);
     cJSON_Delete(json);
 }
 
-void lilygo_sensor_add(uint64_t u64IeeeAddr)
-{
+
+void espressifLightAdd(uint64_t u64IeeeAddr) {
+    char ieeeaddr_str[20] = { 0 };
+    char topic[128] = { 0 };
+    char topic_head[128] = { 0 };
+    char subTopics[128] = { 0 };
+    cJSON *json = cJSON_CreateObject();
+    cJSON *device = cJSON_CreateObject();
+    cJSON *identifiers = cJSON_CreateArray();
+    char *str = NULL;
+
+    if (!json) return ;
+    if (!device) goto OUT;
+    if (!identifiers) goto OUT1;
+
+    snprintf(ieeeaddr_str, sizeof(ieeeaddr_str) - 1, "0x%016llx", u64IeeeAddr);
+    snprintf(topic_head, sizeof(topic_head) - 1,
+        "homeassistant/light/0x%016llx",
+        u64IeeeAddr
+    );
+    snprintf(topic, sizeof(topic) - 1, "%s/config", topic_head);\
+    snprintf(subTopics, sizeof(subTopics) - 1, "%s/set", topic_head);
+
+    cJSON_AddItemToArray(identifiers, cJSON_CreateString(ieeeaddr_str));
+    cJSON_AddItemToObject(device, "identifiers", identifiers);
+    cJSON_AddStringToObject(device, "manufacturer", "Espressif");
+    cJSON_AddStringToObject(device, "model", "Espressif ordinary light");
+    cJSON_AddStringToObject(device, "name", "Espressif.Light");
+    cJSON_AddStringToObject(device, "sw_version", "0.1.0");
+    cJSON_AddItemToObject(json, "device", device);
+    cJSON_AddStringToObject(json, "~", topic_head);
+    cJSON_AddStringToObject(json, "name", "Espressif.Light");
+    cJSON_AddStringToObject(json, "cmd_t", "~/set");
+    cJSON_AddStringToObject(json, "stat_t", "~/state");
+    cJSON_AddStringToObject(json, "schema", "json");
+    cJSON_AddStringToObject(json, "unique_id", ieeeaddr_str);
+
+    str = cJSON_Print(json);
+    // appMQTTPublish(topic, str);
+    mqtt.publish(topic, str);
+    mqtt.subscribe(subTopics, handleLilygoLight);
+    ESP_LOGI(
+        "Zigbee2MQTT",
+        "Successfully interviewed '%#016llx', device has successfully been paired",
+        u64IeeeAddr
+    );
+OUT:
+    cJSON_Delete(json);
+    return;
+OUT1:
+    cJSON_Delete(json);
+    cJSON_Delete(device);
+}
+
+
+void espressifLightDelete(uint64_t u64IeeeAddr) {
+    char ieeeaddr_str[20] = { 0 };
+    char topic[128] = { 0 };
+
+    snprintf(ieeeaddr_str, sizeof(ieeeaddr_str) - 1, "0x%016llx", u64IeeeAddr);
+
+    memset(topic, 0, sizeof(topic));
+    snprintf(topic, sizeof(topic) - 1,
+        "homeassistant/light/%s/config",
+        ieeeaddr_str
+    );
+    // appMQTTPublish(topic, "");
+    mqtt.publish(topic, "");
+}
+
+
+void espressifLightReport(uint64_t u64IeeeAddr, uint8_t u8OnOff) {
+    char topic[128] = { 0 };
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json) return ;
+
+    // printf("lilygoLightReport %d\n", u8OnOff);
+
+    snprintf(topic, sizeof(topic) - 1, "homeassistant/light/0x%016llx/state", u64IeeeAddr);
+    if (u8OnOff == 0x01) {
+        cJSON_AddStringToObject(json, "state", "ON");
+    } else {
+        cJSON_AddStringToObject(json, "state", "OFF");
+    }
+
+    // cJSON_AddStringToObject(json, "state", u8OnOff ? "ON": "OFF");
+    char *str = cJSON_Print(json);
+    // printf("topic: %s, data: %s\n", topic, str);
+    // appMQTTPublish(topic, str);
+    mqtt.publish(topic ,str);
+    cJSON_Delete(json);
+}
+
+void lilygoSensorAdd(uint64_t u64IeeeAddr) {
     char ieeeaddr_str[20] = { 0 };
     cJSON *json = cJSON_CreateObject();
     cJSON *device = cJSON_CreateObject();
     cJSON *identifiers = cJSON_CreateArray();
+    cJSON *json_humidity = NULL;
+    cJSON *json_temperature = NULL;
 
     if (!json) return ;
     if (!device) goto OUT;
@@ -341,19 +481,23 @@ void lilygo_sensor_add(uint64_t u64IeeeAddr)
     cJSON_AddStringToObject(json, "schema", "json");
     cJSON_AddStringToObject(json, "uniq_id", ieeeaddr_str);
 
-    cJSON *json_humidity = cJSON_Duplicate(json, 1);
+    json_humidity = cJSON_Duplicate(json, 1);
     if (json_humidity)
     {
-        sub_humidity(u64IeeeAddr, json_humidity);
+        subHumidity(u64IeeeAddr, json_humidity);
         cJSON_Delete(json_humidity);
     }
-    cJSON *json_temperature = cJSON_Duplicate(json, 1);
+    json_temperature = cJSON_Duplicate(json, 1);
     if (json_temperature)
     {
-        sub_temperature(u64IeeeAddr, json_temperature);
+        subTemperature(u64IeeeAddr, json_temperature);
         cJSON_Delete(json_temperature);
     }
-    ESP_LOGI("Zigbee2MQTT", "Successfully interviewed '%#016llx', device has successfully been paired", u64IeeeAddr);
+    ESP_LOGI(
+        "Zigbee2MQTT",
+        "Successfully interviewed '%#016llx', device has successfully been paired",
+        u64IeeeAddr
+    );
 OUT:
     cJSON_Delete(json);
     return;
@@ -363,27 +507,35 @@ OUT1:
 }
 
 
-void lilygo_sensor_delete(uint64_t u64IeeeAddr)
-{
+void lilygoSensorDelete(uint64_t u64IeeeAddr) {
     char ieeeaddr_str[20] = { 0 };
     char topic[128] = { 0 };
 
     snprintf(ieeeaddr_str, sizeof(ieeeaddr_str) - 1, "0x%016llx", u64IeeeAddr);
 
     memset(topic, 0, sizeof(topic));
-    snprintf(topic, sizeof(topic) - 1, "homeassistant/sensor/%s/humidity/config", ieeeaddr_str);
-    app_mqtt_client_publish(topic ,"");
+    snprintf(topic, sizeof(topic) - 1,
+        "homeassistant/sensor/%s/humidity/config",
+        ieeeaddr_str
+    );
+    // appMQTTPublish(topic, "");
+    mqtt.publish(topic, "");
 
     memset(topic, 0, sizeof(topic));
-    snprintf(topic, sizeof(topic) - 1, "homeassistant/sensor/%s/temperature/config", ieeeaddr_str);
-    app_mqtt_client_publish(topic ,"");
+    snprintf(topic, sizeof(topic) - 1,
+        "homeassistant/sensor/%s/temperature/config",
+        ieeeaddr_str
+    );
+    // appMQTTPublish(topic, "");
+     mqtt.publish(topic, "");
 }
 
 
-void lilygo_sensor_report(uint64_t u64IeeeAddr,
-                       int16_t  i16Temperature,
-                       int16_t  i16Humidity)
-{
+void lilygoSensorReport(
+    uint64_t u64IeeeAddr,
+    int16_t  i16Temperature,
+    int16_t  i16Humidity
+) {
     char ieeeaddr_str[20] = { 0 };
     char topic[128] = { 0 };
 
@@ -395,19 +547,21 @@ void lilygo_sensor_report(uint64_t u64IeeeAddr,
     cJSON_AddNumberToObject(json, "humidity",    (double)i16Humidity/100);
     char *str = cJSON_Print(json);
 
-    app_mqtt_client_publish(topic ,str);
+    // appMQTTPublish(topic, str);
+    mqtt.publish(topic, str);
     cJSON_Delete(json);
 }
 
-void tuya_plug_add(uint64_t u64IeeeAddr)
+void tuyaPlugAdd(uint64_t u64IeeeAddr)
 {
     char ieeeaddr_str[20] = { 0 };
     char topic[128] = { 0 };
     char topic_head[128] = { 0 };
-    char sub_topic[128] = { 0 };
+    char subTopics[128] = { 0 };
     cJSON *json = cJSON_CreateObject();
     cJSON *device = cJSON_CreateObject();
     cJSON *identifiers = cJSON_CreateArray();
+    char *str = NULL;
 
     if (!json) return ;
     if (!device) goto OUT;
@@ -416,7 +570,7 @@ void tuya_plug_add(uint64_t u64IeeeAddr)
     snprintf(ieeeaddr_str, sizeof(ieeeaddr_str) - 1, "0x%016llx", u64IeeeAddr);
     snprintf(topic_head, sizeof(topic_head) - 1, "homeassistant/switch/0x%016llx", u64IeeeAddr);
     snprintf(topic, sizeof(topic) - 1, "%s/config", topic_head);
-    snprintf(sub_topic, sizeof(sub_topic) - 1, "%s/set", topic_head);
+    snprintf(subTopics, sizeof(subTopics) - 1, "%s/set", topic_head);
 
     cJSON_AddItemToArray(identifiers, cJSON_CreateString(ieeeaddr_str));
     cJSON_AddItemToObject(device, "identifiers", identifiers);
@@ -438,11 +592,11 @@ void tuya_plug_add(uint64_t u64IeeeAddr)
     cJSON_AddStringToObject(json, "unique_id", topic);
     cJSON_AddStringToObject(json, "value_template", "{{ value_json.state }}");
 
-    char *str = cJSON_Print(json);
+    str = cJSON_Print(json);
     memset(topic, 0, sizeof(topic));
     snprintf(topic, sizeof(topic) - 1, "%s/config", topic_head);
-    app_mqtt_client_publish(topic ,str);
-    app_mqtt_client_subscribe(sub_topic, 0, handle_tuya_plug);
+    mqtt.publish(topic, str);
+    mqtt.subscribe(subTopics, handleTuyaPlug);
     ESP_LOGI("Zigbee2MQTT", "Successfully interviewed '%#016llx', device has successfully been paired", u64IeeeAddr);
 OUT:
     cJSON_Delete(json);
@@ -452,7 +606,7 @@ OUT1:
     cJSON_Delete(device);
 }
 
-void tuya_plug_delete(uint64_t u64IeeeAddr)
+void tuyaPlugDelete(uint64_t u64IeeeAddr)
 {
     char ieeeaddr_str[20] = { 0 };
     char topic[128] = { 0 };
@@ -461,10 +615,10 @@ void tuya_plug_delete(uint64_t u64IeeeAddr)
 
     memset(topic, 0, sizeof(topic));
     snprintf(topic, sizeof(topic) - 1, "homeassistant/switch/%s/config", ieeeaddr_str);
-    app_mqtt_client_publish(topic ,"");
+    mqtt.publish(topic ,"");
 }
 
-void tuya_plug_report(uint64_t u64IeeeAddr, uint8_t u8OnOff)
+void tuyaPlugReport(uint64_t u64IeeeAddr, uint8_t u8OnOff)
 {
     char ieeeaddr_str[20] = { 0 };
     char topic[128] = { 0 };
@@ -472,7 +626,7 @@ void tuya_plug_report(uint64_t u64IeeeAddr, uint8_t u8OnOff)
     cJSON *json = cJSON_CreateObject();
     if (!json) return ;
 
-    printf("tuya_plug_report %d\n", u8OnOff);
+    printf("tuyaPlugReport %d\n", u8OnOff);
 
     snprintf(ieeeaddr_str, sizeof(ieeeaddr_str) - 1, "0x%016llx", u64IeeeAddr);
     snprintf(topic, sizeof(topic) - 1, "zigbee2mqtt/%s", ieeeaddr_str);
@@ -488,29 +642,28 @@ void tuya_plug_report(uint64_t u64IeeeAddr, uint8_t u8OnOff)
     // cJSON_AddStringToObject(json, "state", u8OnOff ? "ON": "OFF");
     char *str = cJSON_Print(json);
     // printf("topic: %s, data: %s\n", topic, str);
-    app_mqtt_client_publish(topic ,str);
+    mqtt.publish(topic ,str);
     cJSON_Delete(json);
 }
 
-void sub_mqtt_attr_get()
+void subMQTTAttrGet()
 {
     char topic[128] = { 0 };
 
     printf("Subscribing to lilygo mqtt topics\n");
 
     snprintf(topic, sizeof(topic) - 1, "lilygo/readattr", topic);
-    app_mqtt_client_subscribe(topic, 0, handle_mqtt_attr_get);
+    mqtt.subscribe(topic, handleMQTTAttrGet);
     //snprintf(topic, sizeof(topic) - 1, "zigbee2mqtt/0xa4c138c2ec163bd8/set");
     snprintf(topic, sizeof(topic) - 1, "zigbee2mqtt/0xa4c1387ca2489e61/set");
-    app_mqtt_client_subscribe(topic, 0, handle_tuya_plug);
+    mqtt.subscribe(topic, handleTuyaPlug);
 }
 
 /******************************************************************************/
 /***        local functions                                                 ***/
 /******************************************************************************/
 
-static void sub_humidity(uint64_t u64IeeeAddr, cJSON *json)
-{
+static void subHumidity(uint64_t u64IeeeAddr, cJSON *json) {
     char ieeeaddr_str[20] = { 0 };
     char topic[128] = { 0 };
 
@@ -544,15 +697,18 @@ static void sub_humidity(uint64_t u64IeeeAddr, cJSON *json)
 
     char *str = cJSON_Print(json);
     memset(topic, 0, sizeof(topic));
-    snprintf(topic, sizeof(topic) - 1, "homeassistant/sensor/%s/humidity/config", ieeeaddr_str);
+    snprintf(topic, sizeof(topic) - 1,
+        "homeassistant/sensor/%s/humidity/config",
+        ieeeaddr_str
+    );
 
     // push message
-    app_mqtt_client_publish(topic ,str);
+    // appMQTTPublish(topic, str);
+    mqtt.publish(topic, str);
 }
 
 
-static void sub_temperature(uint64_t u64IeeeAddr, cJSON *json)
-{
+static void subTemperature(uint64_t u64IeeeAddr, cJSON *json) {
     char ieeeaddr_str[20] = { 0 };
     char topic[128] = { 0 };
 
@@ -586,15 +742,18 @@ static void sub_temperature(uint64_t u64IeeeAddr, cJSON *json)
 
     char *str = cJSON_Print(json);
     memset(topic, 0, sizeof(topic));
-    snprintf(topic, sizeof(topic) - 1, "homeassistant/sensor/%s/temperature/config", ieeeaddr_str);
+    snprintf(topic, sizeof(topic) - 1,
+        "homeassistant/sensor/%s/temperature/config",
+        ieeeaddr_str
+    );
 
     // push message
-    app_mqtt_client_publish(topic ,str);
+    // appMQTTPublish(topic, str);
+    mqtt.publish(topic, str);
 }
 
 
-static void sub_pressure(uint64_t u64IeeeAddr, cJSON *json)
-{
+static void subPressure(uint64_t u64IeeeAddr, cJSON *json) {
     char ieeeaddr_str[20] = { 0 };
     char topic[128] = { 0 };
 
@@ -628,15 +787,18 @@ static void sub_pressure(uint64_t u64IeeeAddr, cJSON *json)
 
     char *str = cJSON_Print(json);
     memset(topic, 0, sizeof(topic));
-    snprintf(topic, sizeof(topic) - 1, "homeassistant/sensor/%s/pressure/config", ieeeaddr_str);
+    snprintf(topic, sizeof(topic) - 1,
+        "homeassistant/sensor/%s/pressure/config", 
+        ieeeaddr_str
+    );
 
     // push message
-    app_mqtt_client_publish(topic ,str);
+    // appMQTTPublish(topic, str);
+    mqtt.publish(topic, str);
 }
 
 
-static void sub_occupancy(uint64_t u64IeeeAddr, cJSON *json)
-{
+static void subOccupancy(uint64_t u64IeeeAddr, cJSON *json) {
     char ieeeaddr_str[20] = { 0 };
     char topic[128] = { 0 };
 
@@ -671,15 +833,18 @@ static void sub_occupancy(uint64_t u64IeeeAddr, cJSON *json)
 
     char *str = cJSON_Print(json);
     memset(topic, 0, sizeof(topic));
-    snprintf(topic, sizeof(topic) - 1, "homeassistant/binary_sensor/%s/pressure/config", ieeeaddr_str);
+    snprintf(topic, sizeof(topic) - 1,
+        "homeassistant/binary_sensor/%s/pressure/config", 
+        ieeeaddr_str
+    );
 
     // push message
-    app_mqtt_client_publish(topic ,str);
+    // appMQTTPublish(topic, str);
+    mqtt.publish(topic, str);
 }
 
 
-static void sub_illuminance_lux(uint64_t u64IeeeAddr, cJSON *json)
-{
+static void subIlluminanceLux(uint64_t u64IeeeAddr, cJSON *json) {
     char ieeeaddr_str[20] = { 0 };
     char topic[128] = { 0 };
 
@@ -713,15 +878,18 @@ static void sub_illuminance_lux(uint64_t u64IeeeAddr, cJSON *json)
 
     char *str = cJSON_Print(json);
     memset(topic, 0, sizeof(topic));
-    snprintf(topic, sizeof(topic) - 1, "homeassistant/sensor/%s/illuminance_lux/config", ieeeaddr_str);
+    snprintf(topic, sizeof(topic) - 1, 
+        "homeassistant/sensor/%s/illuminance_lux/config",
+        ieeeaddr_str
+    );
 
     // push message
-    app_mqtt_client_publish(topic ,str);
+    // appMQTTPublish(topic, str);
+    mqtt.publish(topic, str);
 }
 
 
-static void handle_lilygo_light(const char * topic, const char *data)
-{
+static void handleLilygoLight(const char * topic, const char *data) {
     if (!topic || !data) return ;
     uint64_t u64IeeeAddr = 0;
     ts_DstAddr  sDstAddr;
@@ -729,33 +897,27 @@ static void handle_lilygo_light(const char * topic, const char *data)
     sscanf(topic, "homeassistant/light/0x%016llx/set", &u64IeeeAddr);
     printf("u64IeeeAddr: 0x%016llx\n", u64IeeeAddr);
 
-    device_node_t *device = find_device_by_ieeeaddr(u64IeeeAddr);
-    if (!device)
-    {
+    DeviceNode *device = findDeviceByIeeeaddr(u64IeeeAddr);
+    if (!device) {
         printf("on device\n");
         return;
     }
     sDstAddr.u16DstAddr = device->u16NwkAddr;
 
     cJSON *json = cJSON_Parse(data);
-    if (!json)
-    {
+    if (!json) {
         printf("json error\n");
         return ;
     }
     cJSON *state = cJSON_GetObjectItem(json, "state");
-    if (!state)
-    {
+    if (!state) {
         cJSON_Delete(json);
         printf("json error\n");
         return ;
     }
-    if (!memcmp(state->valuestring, "ON", strlen("ON")))
-    {
+    if (!memcmp(state->valuestring, "ON", strlen("ON"))) {
         zbhci_ZclOnoffOn(0x02, sDstAddr, 1, 1);
-    }
-    else
-    {
+    } else {
         zbhci_ZclOnoffOff(0x02, sDstAddr, 1, 1);
     }
 
@@ -764,9 +926,9 @@ static void handle_lilygo_light(const char * topic, const char *data)
     delay(100);
 }
 
-static void handle_tuya_plug(const char * topic, const char *data)
+static void handleTuyaPlug(const char * topic, const char *data)
 {
-    printf("handle_tuya_plug: received mqtt command\n");
+    printf("handleTuyaPlug: received mqtt command\n");
 
     if (!topic || !data) return ;
     uint64_t u64IeeeAddr = 0;
@@ -775,7 +937,7 @@ static void handle_tuya_plug(const char * topic, const char *data)
     sscanf(topic, "zigbee2mqtt/0x%016llx/set", &u64IeeeAddr);
     printf("u64IeeeAddr: 0x%016llx\n", u64IeeeAddr);
 
-    device_node_t *device = find_device_by_ieeeaddr(u64IeeeAddr);
+    DeviceNode *device = findDeviceByIeeeaddr(u64IeeeAddr);
     if (!device)
     {
         printf("on device\n");
@@ -809,7 +971,7 @@ static void handle_tuya_plug(const char * topic, const char *data)
     delay(100);
 }
 
-static void handle_mqtt_attr_get(const char * topic, const char *data) {
+static void handleMQTTAttrGet(const char * topic, const char *data) {
     printf("Received attr_get mqtt command\n");
     if (!topic || !data) return ;
     //uint64_t u64IeeeAddr = 0xa4c138c2ec163bd8;
@@ -818,7 +980,7 @@ static void handle_mqtt_attr_get(const char * topic, const char *data) {
     ts_DstAddr  sDstAddr;
     uint16_t uAttrList[1];
 
-    device_node_t *device = find_device_by_ieeeaddr(u64IeeeAddr);
+    DeviceNode *device = findDeviceByIeeeaddr(u64IeeeAddr);
     if (!device)
     {
         printf("on device\n");

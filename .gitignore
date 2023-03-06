@@ -1,6 +1,4 @@
 .vscode
 .pio
+.DS_Store*
 examples/zigbee2mqtt/data/db-milo.json
-.DS_Store
-T-ZigBee-SQ6NTI.code-workspace
-T-ZigBee-SQ6NTI.code-workspace
