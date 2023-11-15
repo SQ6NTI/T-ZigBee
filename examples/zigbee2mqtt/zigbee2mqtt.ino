@@ -457,6 +457,12 @@ void appHandleLeaveIndication(ts_MsgLeaveIndicationPayload *payload) {
             lilygoSensorDelete(device->u64IeeeAddr);
         }
         else if (!strncmp((const char *)device->au8ModelId,
+                            "TRADFRI control outlet",
+                            strlen("TRADFRI control outlet")))
+        {
+            tradfriPlugDelete(device->u64IeeeAddr);
+        }
+        else if (!strncmp((const char *)device->au8ModelId,
                             "ESP32C6.Light",
                             strlen("ESP32C6.Light")))
         {
@@ -520,6 +526,13 @@ void appHandleZCLreportMsgRcv(ts_MsgZclReportMsgRcvPayload *payload) {
                         lilygoSensorAdd(device->u64IeeeAddr);
                     }
                     else if (!strncmp((const char *)payload->asAttrList[i].uAttrData.au8AttrData,
+                                      "TRADFRI control outlet",
+                                      strlen("TRADFRI control outlet")))
+                    {
+                        appDataBaseSave();
+                        tradfriPlugAdd(device->u64IeeeAddr);
+                    }
+                    else if (!strncmp((const char *)payload->asAttrList[i].uAttrData.au8AttrData,
                                        "ESP32C6.Light",
                                        strlen("ESP32C6.Light")))
                     {
@@ -548,13 +561,20 @@ void appHandleZCLreportMsgRcv(ts_MsgZclReportMsgRcvPayload *payload) {
             {
                 if (payload->asAttrList[i].u16AttrID == 0x0000)
                 {
-                    device->deviceData.light.u8State = payload->asAttrList[i].uAttrData.u8AttrData;
                     if (!strncmp((const char *)device->au8ModelId, "LILYGO.Light", strlen("LILYGO.Light")) || \
                         !strncmp((const char *)device->au8ModelId, "ESP32C6.Light", strlen("ESP32C6.Light")))
                     {
+                        device->deviceData.light.u8State = payload->asAttrList[i].uAttrData.u8AttrData;
                         lilygoLightReport(
                             device->u64IeeeAddr,
                             device->deviceData.light.u8State
+                        );
+                    } else if (!strncmp((const char *)device->au8ModelId, "TRADFRI control outlet", strlen("TRADFRI control outlet")))
+                    {
+                        device->deviceData.plug.bOnOff = payload->asAttrList[i].uAttrData.u8AttrData;
+                        tradfriPlugReport(
+                            device->u64IeeeAddr,
+                            device->deviceData.plug.bOnOff
                         );
                     } else {
                         //if (device->u64IeeeAddr == 0xa4c138c2ec163bd8)
@@ -760,6 +780,13 @@ void appHandleZCLReadResponse(ts_MsgZclAttrReadRspPayload *payload) {
                     {
                         appDataBaseSave();
                         lilygoSensorAdd(device->u64IeeeAddr);
+                    }
+                    else if (!strncmp((const char *)payload->asAttrReadList[i].uAttrData.au8AttrData,
+                                      "TRADFRI control outlet",
+                                      strlen("TRADFRI control outlet")))
+                    {
+                        appDataBaseSave();
+                        tradfriPlugAdd(device->u64IeeeAddr);
                     }
                    else if (!strncmp((const char *)payload->asAttrReadList[i].uAttrData.au8AttrData,
                                       "ESP32C6.Light",

@@ -73,6 +73,12 @@ void tuyaPlugDelete(uint64_t u64IeeeAddr);
 
 void tuyaPlugReport(uint64_t u64IeeeAddr, uint8_t u8OnOff);
 
+void tradfriPlugAdd(uint64_t u64IeeeAddr);
+
+void tradfriPlugDelete(uint64_t u64IeeeAddr);
+
+void tradfriPlugReport(uint64_t u64IeeeAddr, uint8_t u8OnOff);
+
 void subMQTTAttrGet();
 
 #endif

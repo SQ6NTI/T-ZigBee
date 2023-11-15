@@ -41,6 +41,8 @@ static void handleLilygoLight(const char *topic, const char *data);
 
 static void handleTuyaPlug(const char * topic, const char *data);
 
+static void handleTradfriPlug(const char * topic, const char *data);
+
 static void handleMQTTAttrGet(const char * topic, const char *data);
 
 /******************************************************************************/
@@ -506,7 +508,6 @@ OUT1:
     cJSON_Delete(device);
 }
 
-
 void lilygoSensorDelete(uint64_t u64IeeeAddr) {
     char ieeeaddr_str[20] = { 0 };
     char topic[128] = { 0 };
@@ -627,6 +628,99 @@ void tuyaPlugReport(uint64_t u64IeeeAddr, uint8_t u8OnOff)
     if (!json) return ;
 
     printf("tuyaPlugReport %d\n", u8OnOff);
+
+    snprintf(ieeeaddr_str, sizeof(ieeeaddr_str) - 1, "0x%016llx", u64IeeeAddr);
+    snprintf(topic, sizeof(topic) - 1, "zigbee2mqtt/%s", ieeeaddr_str);
+    if (u8OnOff == 0x01)
+    {
+        cJSON_AddStringToObject(json, "state", "ON");
+    }
+    else
+    {
+        cJSON_AddStringToObject(json, "state", "OFF");
+    }
+
+    // cJSON_AddStringToObject(json, "state", u8OnOff ? "ON": "OFF");
+    char *str = cJSON_Print(json);
+    // printf("topic: %s, data: %s\n", topic, str);
+    mqtt.publish(topic ,str);
+    cJSON_Delete(json);
+}
+
+void tradfriPlugAdd(uint64_t u64IeeeAddr) {
+    char ieeeaddr_str[20] = { 0 };
+    char topic[128] = { 0 };
+    char topic_head[128] = { 0 };
+    char subTopics[128] = { 0 };
+    cJSON *json = cJSON_CreateObject();
+    cJSON *device = cJSON_CreateObject();
+    cJSON *identifiers = cJSON_CreateArray();
+    char *str = NULL;
+
+    if (!json) return ;
+    if (!device) goto OUT;
+    if (!identifiers) goto OUT1;
+
+    snprintf(ieeeaddr_str, sizeof(ieeeaddr_str) - 1, "0x%016llx", u64IeeeAddr);
+    snprintf(topic_head, sizeof(topic_head) - 1, "homeassistant/switch/0x%016llx", u64IeeeAddr);
+    snprintf(topic, sizeof(topic) - 1, "%s/config", topic_head);
+    snprintf(subTopics, sizeof(subTopics) - 1, "%s/set", topic_head);
+
+    cJSON_AddItemToArray(identifiers, cJSON_CreateString(ieeeaddr_str));
+    cJSON_AddItemToObject(device, "identifiers", identifiers);
+    cJSON_AddStringToObject(device, "manufacturer", "IKEA");
+    cJSON_AddStringToObject(device, "model", "TRADFRI control outlet");
+    cJSON_AddStringToObject(device, "name", ieeeaddr_str);
+    cJSON_AddItemToObject(json, "device", device);
+    memset(topic, 0, sizeof(topic));
+    snprintf(topic, sizeof(topic) - 1, "zigbee2mqtt/%s", ieeeaddr_str);
+    cJSON_AddStringToObject(json, "json_attributes_topic", topic);
+    cJSON_AddStringToObject(json, "name", ieeeaddr_str);
+    cJSON_AddStringToObject(json, "payload_off", "OFF");
+    cJSON_AddStringToObject(json, "payload_on", "ON");
+    memset(topic, 0, sizeof(topic));
+    snprintf(topic, sizeof(topic) - 1, "zigbee2mqtt/%s", ieeeaddr_str);
+    cJSON_AddStringToObject(json, "state_topic", topic);
+    memset(topic, 0, sizeof(topic));
+    snprintf(topic, sizeof(topic) - 1, "%s_switch_zigbee2mqtt", ieeeaddr_str);
+    cJSON_AddStringToObject(json, "unique_id", topic);
+    cJSON_AddStringToObject(json, "value_template", "{{ value_json.state }}");
+
+    str = cJSON_Print(json);
+    memset(topic, 0, sizeof(topic));
+    snprintf(topic, sizeof(topic) - 1, "%s/config", topic_head);
+    mqtt.publish(topic, str);
+    mqtt.subscribe(subTopics, handleTradfriPlug);
+    ESP_LOGI("Zigbee2MQTT", "Successfully interviewed '%#016llx', device has successfully been paired", u64IeeeAddr);
+OUT:
+    cJSON_Delete(json);
+    return;
+OUT1:
+    cJSON_Delete(json);
+    cJSON_Delete(device);
+}
+
+void tradfriPlugDelete(uint64_t u64IeeeAddr)
+{
+    char ieeeaddr_str[20] = { 0 };
+    char topic[128] = { 0 };
+
+    snprintf(ieeeaddr_str, sizeof(ieeeaddr_str) - 1, "0x%016llx", u64IeeeAddr);
+
+    memset(topic, 0, sizeof(topic));
+    snprintf(topic, sizeof(topic) - 1, "homeassistant/switch/%s/config", ieeeaddr_str);
+    mqtt.publish(topic ,"");
+}
+
+void tradfriPlugReport(uint64_t u64IeeeAddr, uint8_t u8OnOff)
+{
+    char ieeeaddr_str[20] = { 0 };
+    char topic[128] = { 0 };
+
+    cJSON *json = cJSON_CreateObject();
+    if (!json) return ;
+
+    printf("tradfriPlugReport %d\n", u8OnOff);
 
     snprintf(ieeeaddr_str, sizeof(ieeeaddr_str) - 1, "0x%016llx", u64IeeeAddr);
     snprintf(topic, sizeof(topic) - 1, "zigbee2mqtt/%s", ieeeaddr_str);
@@ -929,6 +1023,51 @@ static void handleLilygoLight(const char * topic, const char *data) {
 static void handleTuyaPlug(const char * topic, const char *data)
 {
     printf("handleTuyaPlug: received mqtt command\n");
+
+    if (!topic || !data) return ;
+    uint64_t u64IeeeAddr = 0;
+    ts_DstAddr  sDstAddr;
+
+    sscanf(topic, "zigbee2mqtt/0x%016llx/set", &u64IeeeAddr);
+    printf("u64IeeeAddr: 0x%016llx\n", u64IeeeAddr);
+
+    DeviceNode *device = findDeviceByIeeeaddr(u64IeeeAddr);
+    if (!device)
+    {
+        printf("on device\n");
+    }
+    sDstAddr.u16DstAddr = device->u16NwkAddr;
+
+    cJSON *json = cJSON_Parse(data);
+    if (!json)
+    {
+        printf("json error\n");
+        return ;
+    }
+    cJSON *state = cJSON_GetObjectItem(json, "state");
+    if (!state)
+    {
+        cJSON_Delete(json);
+        printf("json error\n");
+        return ;
+    }
+    if (!memcmp(state->valuestring, "ON", strlen("ON")))
+    {
+        zbhci_ZclOnoffOn(0x02, sDstAddr, 1, 1);
+    }
+    else
+    {
+        zbhci_ZclOnoffOff(0x02, sDstAddr, 1, 1);
+    }
+
+    // zbhci_ZclAttrWrite(0x02, sDstAddr, 1, 1, 0, 0x0006, 1, &sAttrList);
+    cJSON_Delete(json);
+    delay(100);
+}
+
+static void handleTradfriPlug(const char * topic, const char *data)
+{
+    printf("handleTradfriPlug: received mqtt command\n");
 
     if (!topic || !data) return ;
     uint64_t u64IeeeAddr = 0;

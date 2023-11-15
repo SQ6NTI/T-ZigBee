@@ -49,6 +49,12 @@ typedef struct TS011F
     uint8_t bOnOff;
 } TS011F;
 
+typedef struct Plug
+{
+    uint8_t u8Ep;
+    uint8_t bOnOff;
+} Plug;
+
 typedef struct DeviceNode {
     uint64_t u64IeeeAddr;
     uint16_t u16NwkAddr;
@@ -61,6 +67,7 @@ typedef struct DeviceNode {
         Light      light;
         Sensor     sensor;
         TS011F     ts011f;
+        Plug       plug;
     } deviceData;
 } DeviceNode;
 
